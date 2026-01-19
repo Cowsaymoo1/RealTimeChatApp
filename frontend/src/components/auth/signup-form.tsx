@@ -62,18 +62,6 @@ export function SignupForm({
               {/* fullname */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="sapce-y-2">
-                  <Label htmlFor="lastname" className="block text-sm">
-                    Last Name
-                  </Label>
-                  <Input type="text" id="lastname" {...register("lastname")} />
-                  {/* error message */}
-                  {errors.lastname && (
-                    <p className="text-destructive text-sm">
-                      {errors.lastname.message}
-                    </p>
-                  )}
-                </div>
-                <div className="sapce-y-2">
                   <Label htmlFor="firstname" className="block text-sm">
                     First Name
                   </Label>
@@ -86,6 +74,18 @@ export function SignupForm({
                   {errors.firstname && (
                     <p className="text-destructive text-sm">
                       {errors.firstname.message}
+                    </p>
+                  )}
+                </div>
+                <div className="sapce-y-2">
+                  <Label htmlFor="lastname" className="block text-sm">
+                    Last Name
+                  </Label>
+                  <Input type="text" id="lastname" {...register("lastname")} />
+                  {/* error message */}
+                  {errors.lastname && (
+                    <p className="text-destructive text-sm">
+                      {errors.lastname.message}
                     </p>
                   )}
                 </div>

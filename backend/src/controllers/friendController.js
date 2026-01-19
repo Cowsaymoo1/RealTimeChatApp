@@ -1,0 +1,178 @@
+import Friend from "../models/Friend.js";
+import User from "../models/User.js";
+import FriendRequest from "../models/FriendRequest.js";
+
+export const sendFriendRequest = async (req, res) => {
+  try {
+    const { to, message } = req.body;
+    const from = req.user._id;
+
+    if (from.toString() === to.toString()) {
+      return res
+        .status(400)
+        .json({ message: "Unable to send request for yourself!" });
+    }
+
+    const userExists = await User.exists({ _id: to });
+    if (!userExists) {
+      return res.status(404).json({ message: "User does not exists!" });
+    }
+
+    let userA = from.toString();
+    let userB = to.toString();
+
+    if (userA > userB) {
+      [userA, userB] = [userB, userA];
+    }
+
+    //Promise All chạy song song, tối ưu
+    const [alreadyFriends, existingRequest] = await Promise.all([
+      Friend.findOne({ userA, userB }),
+      FriendRequest.findOne({
+        $or: [
+          { from, to },
+          { from: to, to: from },
+        ],
+      }),
+    ]);
+    //Trường hợp đã là bạn
+    if (alreadyFriends) {
+      return res.status(400).json({ message: "U guy were already friend" });
+    }
+    //Trường hợp đã gửi lời mời
+    if (existingRequest) {
+      return res
+        .status(400)
+        .json({ message: "already have friend request pending!" });
+    }
+    //tạo lời mời
+    const request = await FriendRequest.create({
+      from,
+      to,
+      message,
+    });
+
+    return res
+      .status(201)
+      .json({ message: "Sending a friend request successfully!", request });
+  } catch (error) {
+    console.error("An error occurred when sending friend request", error);
+    return res.status(500).json({ message: "system error" });
+  }
+};
+
+export const acceptFriendRequest = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user._id;
+
+    const request = await FriendRequest.findById(requestId);
+
+    if (!request) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy lời mời kết bạn" });
+    }
+
+    if (request.to.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Bạn không có quyền chấp nhận lời mời này" });
+    }
+
+    const friend = await Friend.create({
+      userA: request.from,
+      userB: request.to,
+    });
+
+    await FriendRequest.findByIdAndDelete(requestId);
+
+    const from = await User.findById(request.from)
+      .select("_id displayName avatarUrl")
+      .lean();
+
+    return res.status(200).json({
+      message: "Chấp nhận lời mời kết bạn thành công",
+      newFriend: {
+        _id: from?._id,
+        displayName: from?.displayName,
+        avatarUrl: from?.avatarUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi khi chấp nhận lời mời kết bạn", error);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
+export const declineFriendRequest = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user._id;
+    const request = await FriendRequest.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Friend request not found!" });
+    }
+    if (request.to.toString() !== userId.toString()) {
+      return res.status(403).json({
+        message: "You do not have Permission to decline this request!",
+      });
+    }
+    await FriendRequest.findByIdAndDelete(requestId);
+    return res
+      .sendStatus(204)
+      .json({ message: "Decline friend request successfully!" });
+  } catch (error) {
+    console.error("An error occurred when decline friend request", error);
+    return res.status(500).json({ message: "system error" });
+  }
+};
+
+export const getAllFriend = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const friendships = await Friend.find({
+      $or: [
+        {
+          userA: userId,
+        },
+        {
+          userB: userId,
+        },
+      ],
+    })
+      .populate("userA", "_id displayName avatarUrl")
+      .populate("userB", "_id displayName avatarUrl")
+      .lean();
+
+    if (!friendships.length) {
+      return res.status(200).json({ friend: [] });
+    }
+
+    const friend = friendships.map((f) =>
+      f.userA._id.toString() === userId.toString() ? f.userB : f.userA
+    );
+
+    return res.status(200).json({ friend });
+  } catch (error) {
+    console.error("An error occurred when getting friend list", error);
+    return res.status(500).json({ message: "system error" });
+  }
+};
+
+export const getFriendRequest = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const populateFields = "_id username displayName avatarUrl";
+
+    const [sent, received] = await Promise.all([
+      FriendRequest.find({ from: userId }).populate("to", populateFields),
+      FriendRequest.find({ to: userId }).populate("from", populateFields),
+    ]);
+
+    return res.status(200).json({ sent, received });
+  } catch (error) {
+    console.error("An error occurred when getting friend request list", error);
+    return res.status(500).json({ message: "system error" });
+  }
+};

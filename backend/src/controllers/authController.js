@@ -15,25 +15,37 @@ export const signUp = async (req, res) => {
       });
     }
 
-    // check if userName exists
-    const duplicate = await User.findOne({ userName });
+    // check if userName or email exists
+    const duplicate = await User.findOne({ $or: [{ userName }, { email }] });
 
     if (duplicate) {
-      return res.status(409).json({ message: "userName already exists" });
+      if (duplicate.userName === userName) {
+        return res.status(409).json({ message: "userName already exists" });
+      }
+      if (duplicate.email === email) {
+        return res.status(409).json({ message: "email already exists" });
+      }
     }
 
     //encrypt password
     const hashedPassword = await bcrypt.hash(password, 10); // 10 = salt rounds => more secure
 
-    //creat user
-    await User.create({
-      userName,
-      hashedPassword,
-      email,
-      displayName: `${firstName} ${lastName}`,
-    });
-
-    return res.status(201).json({ message: "User created successfully" });
+    //create user
+    try {
+      await User.create({
+        userName,
+        hashedPassword,
+        email,
+        displayName: `${firstName} ${lastName}`,
+      });
+      return res.status(201).json({ message: "User created successfully" });
+    } catch (err) {
+      if (err?.code === 11000) {
+        // Mongo duplicate key
+        return res.status(409).json({ message: "Duplicate field error" });
+      }
+      throw err;
+    }
   } catch (error) {
     console.log("error when call signUp", error);
     return res.status(500).json({ message: "system error" });
@@ -107,9 +119,46 @@ export const signOut = async (req, res) => {
       //delete cookie
       res.clearCookie("refreshToken");
     }
-    return res.sendStatus(204);
+    return res.sendStatus(204).json({ message: "logout successfully!" });
   } catch (error) {
     console.log("error when call signOut", error);
+    return res.status(500).json({ message: "system error" });
+  }
+};
+
+export const refreshToken = async (req, res) => {
+  try {
+    // lay refreshToken từ cookie
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(401).json({ message: "token doesn't exists!" });
+    }
+
+    //so với refreshToken trong db
+    const session = await Session.findOne({ refreshToken: token });
+    if (!session) {
+      return res.status(403).json({ message: "Token Invalid or expired!" });
+    }
+
+    //kiểm tra hết hạn chưa
+    if (session.expiresAt < new Date()) {
+      return res.status(403).json({ message: "token expired!" });
+    }
+
+    //tạo accessToken mới
+    const accessToken = jwt.sign(
+      {
+        userId: session.userId,
+      },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: ACCESS_TOKEN_TTL }
+    );
+
+    return res.status(200).json({ accessToken });
+
+    //return
+  } catch (error) {
+    console.error("An error occurred when call refreshToken", error);
     return res.status(500).json({ message: "system error" });
   }
 };

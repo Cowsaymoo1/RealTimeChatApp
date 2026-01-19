@@ -6,6 +6,8 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Label } from "../ui/label";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useNavigate } from "react-router";
 
 const signInSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -18,6 +20,9 @@ export function SigninForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const { signIn } = useAuthStore();
+  const navigate = useNavigate();
+
   // register theo doi gia tri input
   // handleSubmit de submit form
   const {
@@ -29,6 +34,9 @@ export function SigninForm({
   });
 
   const onSubmit = async (data: SignInFormValues) => {
+    const { username, password } = data;
+    await signIn(username, password);
+    navigate("/");
     //call api back-end.
   };
   return (
@@ -89,7 +97,7 @@ export function SigninForm({
 
               <div className="text-center text-sm">
                 Don't have Account?
-                <a href="/signin" className="underline underline-offset-4">
+                <a href="/signup" className="underline underline-offset-4">
                   {" "}
                   Sign Up
                 </a>
