@@ -1,4 +1,4 @@
-import mongoose, { Mongoose } from "mongoose";
+import mongoose from "mongoose";
 const userSchema = new mongoose.Schema(
   {
     userName: {
@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
     avatarUrl: {
       type: String, //link CDN image
     },
-    avatarID: {
+    avatarId: {
       type: String, //Cloudinary ID
     },
     bio: {
@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema(
       sparse: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const User = mongoose.model("User", userSchema);

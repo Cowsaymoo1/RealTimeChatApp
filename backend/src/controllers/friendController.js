@@ -141,19 +141,19 @@ export const getAllFriend = async (req, res) => {
         },
       ],
     })
-      .populate("userA", "_id displayName avatarUrl")
-      .populate("userB", "_id displayName avatarUrl")
+      .populate("userA", "_id displayName avatarUrl userName")
+      .populate("userB", "_id displayName avatarUrl userName")
       .lean();
 
     if (!friendships.length) {
-      return res.status(200).json({ friend: [] });
+      return res.status(200).json({ friends: [] });
     }
 
-    const friend = friendships.map((f) =>
-      f.userA._id.toString() === userId.toString() ? f.userB : f.userA
+    const friends = friendships.map((f) =>
+      f.userA._id.toString() === userId.toString() ? f.userB : f.userA,
     );
 
-    return res.status(200).json({ friend });
+    return res.status(200).json({ friends });
   } catch (error) {
     console.error("An error occurred when getting friend list", error);
     return res.status(500).json({ message: "system error" });
@@ -163,7 +163,7 @@ export const getAllFriend = async (req, res) => {
 export const getFriendRequest = async (req, res) => {
   try {
     const userId = req.user._id;
-    const populateFields = "_id username displayName avatarUrl";
+    const populateFields = "_id userName displayName avatarUrl";
 
     const [sent, received] = await Promise.all([
       FriendRequest.find({ from: userId }).populate("to", populateFields),

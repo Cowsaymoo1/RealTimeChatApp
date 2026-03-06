@@ -1,10 +1,17 @@
-import { authMe, test } from "../controllers/userController.js";
+import {
+  authMe,
+  searchUserByUsername,
+  uploadAvatar,
+} from "../controllers/userController.js";
 import express from "express";
+import { upload } from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 
 router.get("/me", authMe);
 
-router.get("/test", test);
+router.get("/search", searchUserByUsername);
+
+router.post("/uploadAvatar", upload.single("file"), uploadAvatar);
 
 export default router;

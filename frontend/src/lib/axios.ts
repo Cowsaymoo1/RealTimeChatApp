@@ -1,10 +1,7 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import axios from "axios";
 const api = axios.create({
-  baseURL:
-    import.meta.env.MODE === "development"
-      ? "http://localhost:5001/api"
-      : "/api",
+  baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
 });
 
@@ -35,7 +32,8 @@ api.interceptors.response.use(
     }
 
     originalRequest._retryCount = originalRequest._retryCount || 0;
-    if (error.response?.status === 403 && originalRequest._retryCount < 4) {
+    const status = error.response?.status;
+    if ((status === 401 || status === 403) && originalRequest._retryCount < 4) {
       originalRequest._retryCount += 1;
       console.log("refresh", originalRequest._retryCount);
       try {
@@ -50,5 +48,5 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );

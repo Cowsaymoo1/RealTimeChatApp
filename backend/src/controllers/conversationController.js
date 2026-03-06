@@ -1,5 +1,6 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import { io } from "../socket/index.js";
 
 export const createConversation = async (req, res) => {
   try {
@@ -69,7 +70,22 @@ export const createConversation = async (req, res) => {
         select: "displayName avatarUrl",
       },
     ]);
-    return res.status(201).json({ conversation });
+
+    const participants = (conversation.participants || []).map((p) => ({
+      _id: p.userId?._id,
+      displayName: p.userId?.displayName,
+      avatarUrl: p.userId?.avatarUrl ?? null,
+      joinedAt: p.joinedAt,
+    }));
+
+    const formatted = { ...conversation.toObject(), participants };
+
+    if (type === "group") {
+      memberIds.forEach((userId) => {
+        io.to(userId).emit("new-group", formatted);
+      });
+    }
+    return res.status(201).json({ conversation: formatted });
   } catch (error) {
     console.error("An error occurred when creating conversation!");
     return res.status(500).json({ message: "system error" });
@@ -123,11 +139,11 @@ export const getMessages = async (req, res) => {
     const query = { conversationId };
 
     if (cursor) {
-      query.createAt = { $lt: new Date(cursor) };
+      query.createdAt = { $lt: new Date(cursor) };
     }
 
     let messages = await Message.find(query)
-      .sort({ createAt: -1 })
+      .sort({ createdAt: -1 })
       .limit(Number(limit) + 1);
 
     let nextCursor = null;
@@ -145,6 +161,78 @@ export const getMessages = async (req, res) => {
     });
   } catch (error) {
     console.error("An error occurred when fetching messages!", error);
+    return res.status(500).json({ message: "system error" });
+  }
+};
+
+export const getUserConversationsForSocketIO = async (userId) => {
+  try {
+    const conversations = await Conversation.find(
+      {
+        "participants.userId": userId,
+      },
+      { _id: 1 },
+    );
+
+    return conversations.map((c) => c._id.toString());
+  } catch (error) {
+    console.error("An error occurred when fetching conversations!", error);
+    return [];
+  }
+};
+
+//mark as seen
+export const markAsSeen = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id.toString();
+
+    const conversation = await Conversation.findById(conversationId).lean();
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const last = conversation.lastMessage;
+
+    if (!last) {
+      return res
+        .status(200)
+        .json({ message: "message not found to mark as seen" });
+    }
+
+    if (last.senderId.toString() === userId) {
+      return res.status(200).json({ message: "sender is you" });
+    }
+
+    const updated = await Conversation.findByIdAndUpdate(
+      conversationId,
+      {
+        $addToSet: { seenBy: userId },
+        $set: { [`unreadCounts.${userId}`]: 0 },
+      },
+      { new: true },
+    );
+
+    io.to(conversationId).emit("read-message", {
+      conversation: updated,
+      lastMessage: {
+        _id: updated?.lastMessage._id,
+        content: updated?.lastMessage.content,
+        createdAt: updated?.lastMessage.createdAt,
+        sender: {
+          _id: updated?.lastMessage.senderId,
+        },
+      },
+    });
+
+    return res.status(200).json({
+      message: "Mark as seen",
+      seenBy: updated?.seenBy || [],
+      myUnreadCount: updated?.unreadCounts[userId] || 0,
+    });
+  } catch (error) {
+    console.error("An error occurred when marking as seen!", error);
     return res.status(500).json({ message: "system error" });
   }
 };

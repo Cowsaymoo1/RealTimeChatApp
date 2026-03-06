@@ -13,11 +13,19 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       loading: false,
 
+      setAccessToken: (accessToken) => {
+        set({ accessToken });
+      },
+      setUser: (user) => {
+        set({ user });
+      },
+
       clearState: () => {
         set({ accessToken: null, user: null, loading: false });
         //Xóa dữ liệu đã lưu trong localStorage tránh việc dữ liệu bị dùng lại khi người khác đăng nhập
-        localStorage.clear();
         useChatStore.getState().reset();
+        localStorage.clear();
+        sessionStorage.clear();
       },
 
       signUp: async (userName, password, email, firstName, lastName) => {
@@ -29,10 +37,10 @@ export const useAuthStore = create<AuthState>()(
             password,
             email,
             firstName,
-            lastName
+            lastName,
           );
           toast.success(
-            "Sign up success! You will be redirected to the login page."
+            "Sign up success! You will be redirected to the login page.",
           );
         } catch (error) {
           console.log(error);
@@ -44,8 +52,7 @@ export const useAuthStore = create<AuthState>()(
 
       signIn: async (userName, password) => {
         try {
-          localStorage.clear();
-          useChatStore.getState().reset();
+          get().clearState();
           set({ loading: true });
           const { accessToken } = await authService.signIn(userName, password);
           get().setAccessToken(accessToken);
@@ -82,11 +89,11 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true });
           const res = await authService.fetchMe();
-          // map backend userName -> frontend username
+          // map backend userName -> frontend userName
           const user = res.user
             ? {
                 _id: res.user._id,
-                username: res.user.userName ?? res.user.username,
+                userName: res.user.userName ?? res.user.username,
                 email: res.user.email,
                 displayName: res.user.displayName,
                 avatarUrl: res.user.avatarUrl,
@@ -124,16 +131,12 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: false });
         }
       },
-
-      setAccessToken: (accessToken) => {
-        set({ accessToken });
-      },
     }),
     {
       name: "auth-storage",
       partialize: (state) => ({
         user: state.user,
       }),
-    }
-  )
+    },
+  ),
 );

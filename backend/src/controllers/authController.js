@@ -80,7 +80,7 @@ export const signIn = async (req, res) => {
     const accessToken = jwt.sign(
       { userId: user._id },
       process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: ACCESS_TOKEN_TTL }
+      { expiresIn: ACCESS_TOKEN_TTL },
     );
 
     //create refresh accessToken
@@ -119,7 +119,7 @@ export const signOut = async (req, res) => {
       //delete cookie
       res.clearCookie("refreshToken");
     }
-    return res.sendStatus(204).json({ message: "logout successfully!" });
+    return res.status(200).json({ message: "logout successfully!" });
   } catch (error) {
     console.log("error when call signOut", error);
     return res.status(500).json({ message: "system error" });
@@ -151,7 +151,7 @@ export const refreshToken = async (req, res) => {
         userId: session.userId,
       },
       process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: ACCESS_TOKEN_TTL }
+      { expiresIn: ACCESS_TOKEN_TTL },
     );
 
     return res.status(200).json({ accessToken });
