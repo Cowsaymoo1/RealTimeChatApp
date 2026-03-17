@@ -198,7 +198,12 @@ RTChatApp/
 ### Conversations
 
 - `GET /api/conversations` - Get all conversations
-- `GET /api/conversations/:id/messages` - Get conversation messages
+- `GET /api/conversations/:conversationId/messages` - Get conversation messages
+- `PATCH /api/conversations/:conversationId/seen` - Mark conversation as seen
+
+### Upload Avatar
+
+- `POST /api/users/uploadAvatar` - Upload user avatar (multipart/form-data, field name: `file`)
 
 ### API Documentation
 
@@ -208,15 +213,20 @@ Visit `http://localhost:5001/api-docs` for interactive Swagger documentation.
 
 ### Client → Server
 
-- `setup` - Initialize user connection
 - `join-conversation` - Join a conversation room
 
 ### Server → Client
 
 - `new-message` - New message received
+- `read-message` - Conversation read state updated
+- `new-group` - New group created
 - `friend-request-received` - New friend request
 - `friend-request-accepted` - Friend request accepted
 - `online-users` - List of online users
+
+### Socket Authentication
+
+Socket connection is authenticated via `auth.token` (access token) during the Socket.io handshake.
 
 ## 🏗️ Architecture
 
@@ -266,7 +276,7 @@ MongoDB
   email: String(unique, lowercase);
   displayName: String;
   avatarUrl: String;
-  avatarID: String;
+  avatarId: String;
   bio: String;
   phone: String;
 }
@@ -309,11 +319,12 @@ MongoDB
 
 ```javascript
 {
-  participants: [ObjectId] (ref: User)
-  isGroup: Boolean
-  groupName: String
-  groupAvatar: String
-  lastMessage: ObjectId (ref: Message)
+  type: "direct" | "group"
+  participants: [{ userId: ObjectId (ref: User), joinedAt: Date }]
+  group: { name: String, createdBy: ObjectId (ref: User) }?
+  lastMessageAt: Date
+  lastMessage: { _id: String, content: String, senderId: ObjectId, createdAt: Date } | null
+  unreadCounts: Map<userId, number>
   seenBy: [ObjectId] (ref: User)
 }
 ```
@@ -364,6 +375,13 @@ npm run lint     # Run ESLint
 
 ## 🐛 Common Issues
 
+### Git warning: "LF will be replaced by CRLF"
+
+This is a Git line-ending warning on Windows. It does not block your code from running.
+
+- If you want Git to keep Windows line endings in your working tree: `git config --global core.autocrlf true`
+- If you want Git to keep LF everywhere: `git config --global core.autocrlf input`
+
 ### Port Already in Use
 
 ```bash
@@ -388,6 +406,11 @@ npx kill-port 5173
 
 - Ensure `VITE_SOCKET_URL` in frontend `.env` is correct
 - Check that Socket.io middleware is properly configured
+
+### Refresh token cookie not set in local dev (HTTP)
+
+The backend sets the refresh token cookie with `secure: true` and `sameSite: "none"`, which requires HTTPS.
+For local HTTP development you can either run over HTTPS or adjust cookie settings in `backend/src/controllers/authController.js`.
 
 ## 📝 Todo / Roadmap
 
@@ -415,7 +438,7 @@ This project is licensed under the ISC License.
 
 ## 👨‍💻 Author
 
-Your Name
+Cowsaymoo1
 
 ## 🙏 Acknowledgments
 
